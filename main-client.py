@@ -2,6 +2,11 @@ from network import LoRa
 import socket
 import machine
 import time
+from machine import RTC
+
+rtc = RTC()
+rtc.init((2020,12,9,20,32,0))
+
 
 # initialise LoRa in LORA mode
 # Please pick the region that matches where you are using the device:
@@ -18,12 +23,14 @@ i = 0
 while True:
     # send some data
     s.setblocking(True)
-    s.send('Hello from parphis-laptop')
+    t = rtc.now()
+    s.send('checks from bendi-laptop at {0}-{1}-{2} {3}:{4}:{5}'.format(t[0],t[1],t[2],t[3],t[4],t[5],t[6]))
+    print('sent: {0}-{1}-{2} {3}:{4}:{5}'.format(t[0],t[1],t[2],t[3],t[4],t[5],t[6]))
 
     # get any data received...
-    s.setblocking(False)
-    data = s.recv(64)
-    print('{1}. received: {0}'.format(data, i))
+    #s.setblocking(False)
+    #data = s.recv(64)
+    #print('{1}. received: {0}'.format(data, i))
     i = i + 1
     # wait a random amount of time
-    time.sleep(machine.rng() & 0x0F)
+    time.sleep(1) #machine.rng() & 0x0F)
