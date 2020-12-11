@@ -15,10 +15,16 @@ _LORA_PKG_ACK_FORMAT = "BBB"
 # Europe = LoRa.EU868
 # United States = LoRa.US915
 lora = LoRa(mode=LoRa.LORA, rx_iq=True, region=LoRa.EU868)
+
 lora_sock = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
 lora_sock.setblocking(False)
-lora.sf(7)
+lora.sf(11)
+for i in range(3, 16):
+    lora.remove_channel(i)
+for i in range (0, 2):
+    lora.add_channel(i, frequency=868100000, dr_min=3, dr_max=3)
 print('starting')
+
 while (True):
     recv_pkg = lora_sock.recv(512)
 
