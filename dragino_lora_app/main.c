@@ -310,6 +310,7 @@ boolean receive(char *payload) {
     writeReg(REG_IRQ_FLAGS, 0x40);
 
     int irqflags = readReg(REG_IRQ_FLAGS);
+    int i = 0;
 
     //  payload crc: 0x20
     if((irqflags & 0x20) == 0x20)
@@ -325,10 +326,11 @@ boolean receive(char *payload) {
 
         writeReg(REG_FIFO_ADDR_PTR, currentAddr);
 
-        for(int i = 0; i < receivedCount; i++)
+        for(i = 0; i < receivedCount; i++)
         {
             payload[i] = (char)readReg(REG_FIFO);
         }
+        payload[i] = 0x00;
     }
     return true;
 }
@@ -337,6 +339,7 @@ void receivepacket() {
 
     long int SNR;
     int rssicorr;
+    int fd;
 
     if(digitalRead(dio0) == 1)
     {
@@ -366,6 +369,20 @@ void receivepacket() {
             printf("Length: %i", (int)receivedbytes);
             printf("\n");
             printf("Payload: %s\n", message);
+
+            if((fd = open("/var/www/messages/msgs.lst", O_CREAT|O_APPEND|O_WRONLY, 0644)) < 0)
+            {
+                perror("open");
+            }
+            if (write(fd, message, strlen(message)) != (int)strlen(message))
+            {
+               perror("write");
+            }
+            if (write(fd, "\n", strlen("\n")) != (int)strlen("\n"))
+            {
+               perror("write");
+            }
+            close(fd); 
 
         } // received a message
 
@@ -482,25 +499,45 @@ int main (int argc, char *argv[]) {
         printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
 
-       // while(1) {
+        while(1) {
             // TODO free coordinates if program stopped by ctrl-c
             getCoordinates();
             sprintf((char*)hello, "%f %s, %f %s", ptr_coords->latitude, ptr_coords->dir_lat, ptr_coords->longitude, ptr_coords->dir_lon);
 	        i++;
             txlora(hello, strlen((char *)hello), i);
             delay(1000);
-        //}
+        }
     } else {
 
         // radio init
         opmodeLora();
         opmode(OPMODE_STANDBY);
-        opmode(OPMODE_RX);
+            writeReg(RegDioMapping1, MAP_DIO0_LORA_RXDONE|MAP_DIO1_LORA_NOP|MAP_DIO2_LORA_NOP);
+            // clear all radio IRQ flags
+            writeReg(REG_IRQ_FLAGS, 0xFF);
+            // mask all IRQs but TxDone
+            writeReg(REG_IRQ_FLAGS_MASK, ~IRQ_LORA_RXDONE_MASK);
+
+            // initialize the payload size and address pointers
+            writeReg(REG_FIFO_RX_BASE_AD, 0x00);
+            writeReg(REG_FIFO_ADDR_PTR, 0x00);
         printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
         while(1) {
-            receivepacket(); 
-            delay(1);
+        opmode(OPMODE_RX);
+        receivepacket();
+
+        if (i==0) {
+        writeReg(RegPaRamp, (readReg(RegPaRamp) & 0xF0) | 0x08); // set PA ramp-up time 50 uSec
+        configPower(23);
+        //getCoordinates();
+        //sprintf((char*)hello, "%f %s, %f %s", ptr_coords->latitude, ptr_coords->dir_lat, ptr_coords->longitude, ptr_coords->dir_lon);
+        txlora(hello, strlen((char *)hello), i);
+        }
+        
+        if (i==4)   i =0;
+        else    i++;
+        delay(1000);
         }
 
     }
