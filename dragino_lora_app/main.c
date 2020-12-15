@@ -21,6 +21,8 @@
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
+#include "dragino_gps/LM80_MT3339.h"
+
 
 // #############################################
 // #############################################
@@ -155,6 +157,8 @@ bool sx1272 = true;
 byte receivedbytes;
 
 enum sf_t { SF7=7, SF8, SF9, SF10, SF11, SF12 };
+
+gps_type coordinates, *ptr_coords;
 
 /*******************************************************************************
  *
@@ -422,7 +426,27 @@ void txlora(byte *frame, byte datalen, int i) {
     // now we actually start the transmission
     opmode(OPMODE_TX);
 
-    printf("%d. send: %s\n", i, frame);
+    //printf("%d. send: %s\n", i, frame);
+}
+
+void getCoordinates()
+{
+    int res, i = 0;
+    int fd = openPort();
+    char buf[256];
+
+    ptr_coords->latitude = 0.0;
+    ptr_coords->longitude = 0.0;
+
+    while( (ptr_coords->latitude==0.0) && (i <= GPS_MAX_WAIT)  )
+    {
+        res = read(fd, buf, 256); 
+        buf[res] = 0;
+        parseGGAString(buf, ptr_coords);
+        i++;
+    }
+
+    closePort(fd);
 }
 
 int main (int argc, char *argv[]) {
@@ -432,6 +456,10 @@ int main (int argc, char *argv[]) {
         printf ("Usage: argv[0] sender|rec [message]\n");
         exit(1);
     }
+
+    //gps_type *p = (gps_type*)malloc(sizeof(gps_type));
+    //p = &coordinates;
+    ptr_coords = &coordinates;
 
     wiringPiSetup () ;
     pinMode(ssPin, OUTPUT);
@@ -454,14 +482,14 @@ int main (int argc, char *argv[]) {
         printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
 
-        if (argc > 2)
-            strncpy((char *)hello, argv[2], sizeof(hello));
-
-        while(1) {
-	    i++;
+       // while(1) {
+            // TODO free coordinates if program stopped by ctrl-c
+            getCoordinates();
+            sprintf((char*)hello, "%f %s, %f %s", ptr_coords->latitude, ptr_coords->dir_lat, ptr_coords->longitude, ptr_coords->dir_lon);
+	        i++;
             txlora(hello, strlen((char *)hello), i);
             delay(1000);
-        }
+        //}
     } else {
 
         // radio init
