@@ -177,7 +177,7 @@ sf_t sf = SF7;
 // Set center frequency
 uint32_t  freq = 868000000; // in Mhz! (868.1)
 
-byte hello[128] = "SZIA BENDI!áíűőüöúóÉVÍZVEZETÉK szerelő:így KÖSZÖNNEK a MASINISZTÁK!!!";
+byte hello[1024] = "dummy-message\0";
 
 void die(const char *s)
 {
@@ -443,7 +443,7 @@ void txlora(byte *frame, byte datalen, int i) {
     // now we actually start the transmission
     opmode(OPMODE_TX);
 
-    //printf("%d. send: %s\n", i, frame);
+    printf("%d. send: %s\n", i, frame);
 }
 
 void getCoordinates()
@@ -468,6 +468,8 @@ void getCoordinates()
 
 int main (int argc, char *argv[]) {
     int i = 0;
+    int read_cnt = 0;
+    int fd;
 
     if (argc < 2) {
         printf ("Usage: argv[0] sender|rec [message]\n");
@@ -512,32 +514,56 @@ int main (int argc, char *argv[]) {
         // radio init
         opmodeLora();
         opmode(OPMODE_STANDBY);
-            writeReg(RegDioMapping1, MAP_DIO0_LORA_RXDONE|MAP_DIO1_LORA_NOP|MAP_DIO2_LORA_NOP);
-            // clear all radio IRQ flags
-            writeReg(REG_IRQ_FLAGS, 0xFF);
-            // mask all IRQs but TxDone
-            writeReg(REG_IRQ_FLAGS_MASK, ~IRQ_LORA_RXDONE_MASK);
+        writeReg(RegDioMapping1, MAP_DIO0_LORA_RXDONE|MAP_DIO1_LORA_NOP|MAP_DIO2_LORA_NOP);
+        // clear all radio IRQ flags
+        writeReg(REG_IRQ_FLAGS, 0xFF);
+        // mask all IRQs but TxDone
+        writeReg(REG_IRQ_FLAGS_MASK, ~IRQ_LORA_RXDONE_MASK);
+        // initialize the payload size and address pointers
+        writeReg(REG_FIFO_RX_BASE_AD, 0x00);
+        writeReg(REG_FIFO_ADDR_PTR, 0x00);
 
-            // initialize the payload size and address pointers
-            writeReg(REG_FIFO_RX_BASE_AD, 0x00);
-            writeReg(REG_FIFO_ADDR_PTR, 0x00);
         printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
-        while(1) {
-        opmode(OPMODE_RX);
-        receivepacket();
 
-        if (i==0) {
-        writeReg(RegPaRamp, (readReg(RegPaRamp) & 0xF0) | 0x08); // set PA ramp-up time 50 uSec
-        configPower(23);
-        //getCoordinates();
-        //sprintf((char*)hello, "%f %s, %f %s", ptr_coords->latitude, ptr_coords->dir_lat, ptr_coords->longitude, ptr_coords->dir_lon);
-        txlora(hello, strlen((char *)hello), i);
-        }
-        
-        if (i==4)   i =0;
-        else    i++;
-        delay(1000);
+        while(1) {
+
+            if ( (fd = open("/var/legiot/request.req", O_RDONLY)) > 0 ) {
+                writeReg(RegPaRamp, (readReg(RegPaRamp) & 0xF0) | 0x08); // set PA ramp-up time 50 uSec
+                configPower(23);
+
+                //getCoordinates();
+                //sprintf((char*)hello, "%f %s, %f %s", ptr_coords->latitude, ptr_coords->dir_lat, ptr_coords->longitude, ptr_coords->dir_lon);
+                
+                if ( (read_cnt = read(fd, hello, sizeof(hello))) > 0) {
+                    //strncat((char*)hello, 0x00, 1);
+                    txlora(hello, read_cnt, i);
+                    i++;
+                }
+                close(fd);
+                unlink("/var/legiot/request.req");
+
+                writeReg(RegDioMapping1, MAP_DIO0_LORA_RXDONE|MAP_DIO1_LORA_NOP|MAP_DIO2_LORA_NOP);
+                // clear all radio IRQ flags
+                writeReg(REG_IRQ_FLAGS, 0xFF);
+                // mask all IRQs but TxDone
+                writeReg(REG_IRQ_FLAGS_MASK, ~IRQ_LORA_RXDONE_MASK);
+                // mask all IRQs but TxDone
+                writeReg(REG_IRQ_FLAGS_MASK, ~IRQ_LORA_RXDONE_MASK);
+                // initialize the payload size and address pointers
+                writeReg(REG_FIFO_RX_BASE_AD, 0x00);
+                writeReg(REG_FIFO_ADDR_PTR, 0x00);
+
+                delay(1000);
+            }
+            /*else
+            {
+                printf("nincs fd");
+                fflush(stdout);
+            }*/
+            opmode(OPMODE_RX);
+            receivepacket();
+            delay(1000);
         }
 
     }
