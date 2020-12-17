@@ -15,6 +15,8 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include <sys/ioctl.h>
 
@@ -184,6 +186,33 @@ void die(const char *s)
     perror(s);
     exit(1);
 }
+
+void do_chown (const char *file_path,
+               const char *user_name,
+               const char *group_name) 
+{
+    uid_t          uid;
+    gid_t          gid;
+    struct passwd *pwd;
+    struct group  *grp;
+
+    pwd = getpwnam(user_name);
+    if (pwd == NULL) {
+      die("Failed to get uid");
+    }
+    uid = pwd->pw_uid;
+
+    grp = getgrnam(group_name);
+    if (grp == NULL) {
+      die("Failed to get gid");
+    }
+    gid = grp->gr_gid;
+
+    if (chown(file_path, uid, gid) == -1) {
+      die("chown fail");
+    }
+}
+
 
 void selectreceiver()
 {
@@ -382,7 +411,9 @@ void receivepacket() {
             {
                perror("write");
             }
-            close(fd); 
+            close(fd);
+
+            do_chown("/var/www/messages/msgs.lst", "pi", "pi");
 
         } // received a message
 
@@ -534,9 +565,11 @@ int main (int argc, char *argv[]) {
 
                 //getCoordinates();
                 //sprintf((char*)hello, "%f %s, %f %s", ptr_coords->latitude, ptr_coords->dir_lat, ptr_coords->longitude, ptr_coords->dir_lon);
-                
+
+                memset(hello, 0, 1024);
+
                 if ( (read_cnt = read(fd, hello, sizeof(hello))) > 0) {
-                    //strncat((char*)hello, 0x00, 1);
+                    //strncat((char*)hello, "\0", 1);
                     txlora(hello, read_cnt, i);
                     i++;
                 }

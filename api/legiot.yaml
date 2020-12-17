@@ -1,0 +1,61 @@
+swagger: "2.0"
+info:
+  description: legiot swagger config file
+  version: "0.0.1"
+  title: Légtér IOT Project
+consumes:
+  - "application/json"
+produces:
+  - "application/json"
+
+basePath: "/api"
+
+# Paths supported by the server application
+paths:
+  /getLopy:
+    get:
+      operationId: "test.getLopy"
+      tags:
+        - "get-lopy"
+      summary: "Lopy device data"
+      description: "Read the list of messages sent by the specified Lopy device"
+      parameters:
+        - name: "lopy_id"
+          in: "query"
+          type: "string"
+          required: true
+          description: "the machine id of the Lopy device"
+      responses:
+        200:
+          description: "Successful"
+          schema:
+            type: "array"
+            items:
+              properties:
+                messages:
+                  type: "string"
+  /sendMessage:
+    get:
+      operationId: "test.sendMessage"
+      tags:
+        - "send-msg"
+      parameters:
+        - name: "lopy_id"
+          in: "query"
+          type: "string"
+          required: true
+          description: "the machine id of the Lopy device"
+        - name: "msg"
+          in: "query"
+          type: "string"
+          required: true
+          description: "the message to be sent"
+      responses:
+        200:
+          description: "Successful"
+          schema:
+            type: "array"
+            items:
+              properties:
+                messages:
+                  type: "string"
