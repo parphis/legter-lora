@@ -44,7 +44,7 @@ while (1):
     machine_id = ''.join(['{:02x}'.format(b) for b in machine_hex])
     timestamp = time.time()
     freetext = "greetings from {0}!".format(machine_id)
-    msg = "{{'ID':{0},'FROM':{1},'LAT':{2},'LON':{3},'ALT':{4},'FREETEXT':'{5}','TIMESTAMP':{6}}}".format(
+    msg = '''{{"ID":"{0}","FROM":"{1}","LAT":"{2}","LON":"{3}","ALT":"{4}","FREETEXT":"{5}","TIMESTAMP":"{6}"}}'''.format(
         id,
         machine_id,
         gga_msg['Latitude'],
@@ -69,7 +69,7 @@ while (1):
         try:
             request = ujson.loads(data)
             print(request)
-            if (request['to'] == id_str) or (request['to'] == BRODCAST_ID):
+            if (request['to'] == machine_id) or (request['to'] == BRODCAST_ID):
                 new_message = True
                 print('\t***New message: ', request['message'])
                 s.setblocking(True)
